@@ -2,6 +2,16 @@ README file for {{ project_name }}
 
 **Important: keep secrets out of github. Use environment variables.**
 
+=====
+USAGE
+=====
+Create a new Django project using this template:
+
+    ``django-admin.py startproject --template=https://github.com/Knight-News-Innovation-Lab/django-project-template/archive/master.zip <project_name>``
+
+Delete this USAGE section after creating the project. The remainder of this
+README is for the created project.
+
 ===========
 DEVELOPMENT
 ===========
