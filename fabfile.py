@@ -4,11 +4,36 @@ Add the pem file to your ssh agent:
 
     ssh-add <pemfile>
 
-Execute remote commands by specifying apps user @ remote host:
+Set your AWS credentials in environment variables:
+    AWS_ACCESS_KEY_ID
+    AWS_SECRET_ACCESS_KEY
 
-    fab -H apps@<public-dns> <command>
+or in config files:
+    /etc/boto.cfg, or
+    ~/.boto
+
+Note: Do not quote key strings in the config files.
+
+For AWS (boto) config details, see:
+    http://boto.readthedocs.org/en/latest/boto_config_tut.html#credentials
+
+USAGE:
+
+fab <env> <operation>
+
+i.e.: fab [stg|prd] [setup|hosts]
+
+This will execute the operation for all web servers for the given environment
+(stg, or prd).
+
+To execute commands for a specific host, specify apps user @ remote host:
+
+    fab -H apps@<public-dns> <env> <operation>
 """
 import os
+import sys
+import boto
+from boto import ec2
 from fabric.api import env, put, require, run
 from fabric.context_managers import cd, prefix
 from fabric.contrib.files import exists
@@ -27,7 +52,26 @@ USERS_HOME = '/home'
 # DEPLOYMENT SETTINGS
 SITES_DIRNAME = 'sites'
 ENV_DIRNAME = 'env' # virtualenvs go here
+AWS_CREDENTIALS_ERR_MSG = """
+    Unable to connect to AWS. Check your credentials. boto attempts to
+    find AWS credentials in environment variables AWS_ACCESS_KEY_ID
+    and AWS_SECRET_ACCESS_KEY, or in config files: /etc/boto.cfg, or
+    ~/.boto. Do not quote key strings in config files. For details, see:
+    http://boto.readthedocs.org/en/latest/boto_config_tut.html#credentials
+"""
 
+_aws_con = None
+
+def _get_aws_con():
+    global _aws_con
+    if _aws_con is None:
+        try:
+            _aws_con = boto.connect_ec2()
+        except boto.exception.NoAuthHandlerFound:
+            print AWS_CREDENTIALS_ERR_MSG
+            sys.exit(0)
+    return _aws_con
+        
 
 def _path(*args):
     return os.path.join(*args)
@@ -45,6 +89,7 @@ env.ve_path = _path(env.env_path, env.project_name)
 env.activate_path = _path(env.ve_path, 'bin', 'activate')
 env.apache_path = _path(env.home_path, 'apache')
 env.python = PYTHON
+env.app_user = APP_USER
 
 
 def _setup_ssh():
@@ -102,23 +147,52 @@ def _link_apache_conf():
         _symlink(apache_conf, link_path)
 
 
-# TODO: specify hosts automatically by environment
+def _get_ec2_reservations():
+    try:
+        return _get_aws_con().get_all_instances()
+    except boto.exception.EC2ResponseError, e:
+        print "\nReceived error from AWS. Are your credentials correct?"
+        print "Note: do not quote keys in boto config files."
+        print "\nError from Amazon was:\n"
+        print e
+        sys.exit(0)
 
-def production():
-    """Work on production environment
-    """
-    env.settings = 'prd'
+
+def _lookup_ec2_instances():
+    """Get the EC2 instances for this working environment and load them
+    into env."""
+    instances = []
+    prefix = '%s-app' % env.settings # currently only supporting app
+    for r in _get_ec2_reservations():
+        for i in r.instances:
+            if i.tags.get('Name', '').startswith(prefix):
+                instances.append(i)
+    env.instances = instances
 
 
-def staging():
-    """Work on staging environment
-    """
-    env.settings = 'stg'
+def _setup_env(env_type):
+    """Setup the working environment as appropriate for stg, prd."""
+    env.settings = env_type
+    _lookup_ec2_instances()
+    if not env.hosts: # allow user to specify hosts
+        env.hosts = ['%s@%s' % (env.app_user, i.public_dns_name) for i in
+            env.instances]
+    print env.hosts
+    
+
+def prd():
+    """Work on production environment."""
+    _setup_env('prd')
+
+
+def stg():
+    """Work on staging environment."""
+    _setup_env('stg')
 
 
 def setup():
-    """Setup new application deployment. Do this only once per project."""
-    require('settings', provided_by=[production, staging])
+    """Setup new application deployment. Run only once per project."""
+    require('settings', provided_by=[prd, stg])
     # TODO: support for branches? what is the workflow?
     #require('branch', provided_by=[stable, master, branch])
     _setup_ssh()
@@ -128,3 +202,12 @@ def setup():
     _install_requirements()
     _link_apache_conf()
 
+
+def hosts():
+    """List applicable hosts for the specified environment.
+    Use this to determine which hosts will be affected by an
+    environment-specific operation."""
+    require('settings', provided_by=[prd, stg])
+    for host in env.instances:
+        print env.hosts
+    
