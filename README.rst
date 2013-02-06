@@ -54,7 +54,8 @@ will be the name of the directory in ``sites`` that is created by the
 -------------------------------
 Required environment variables:
 -------------------------------
-DJANGO_SETTINGS_MODULE
-DJANGO_SECRET_KEY
-*** Specify additional environment variables here ***
+- DJANGO_SETTINGS_MODULE
+- DJANGO_SECRET_KEY
+
+**Specify additional environment variables here**
 
