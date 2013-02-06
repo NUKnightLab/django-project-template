@@ -111,7 +111,7 @@ def production():
 
 
 def staging():
-    """Work on production environment
+    """Work on staging environment
     """
     env.settings = 'stg'
 
