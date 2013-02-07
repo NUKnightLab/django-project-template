@@ -32,6 +32,7 @@ To execute commands for a specific host, specify apps user @ remote host:
 """
 import os
 import sys
+import tempfile
 import boto
 from boto import ec2
 from fabric.api import env, put, require, run
@@ -60,17 +61,29 @@ AWS_CREDENTIALS_ERR_MSG = """
     http://boto.readthedocs.org/en/latest/boto_config_tut.html#credentials
 """
 
-_aws_con = None
+_ec2_con = None
+_s3_con = None
 
-def _get_aws_con():
-    global _aws_con
-    if _aws_con is None:
+def _get_ec2_con():
+    global _ec2_con
+    if _ec2_con is None:
         try:
-            _aws_con = boto.connect_ec2()
+            _ec2_con = boto.connect_ec2()
         except boto.exception.NoAuthHandlerFound:
             print AWS_CREDENTIALS_ERR_MSG
             sys.exit(0)
-    return _aws_con
+    return _ec2_con
+
+
+def _get_s3_con():
+    global _s3_con
+    if _s3_con is None:
+        try:
+            _s3_con = boto.connect_s3()
+        except boto.exception.NoAuthHandlerFound:
+            print AWS_CREDENTIALS_ERR_MSG
+            sys.exit(0)
+    return _s3_con
         
 
 def _path(*args):
@@ -91,16 +104,37 @@ env.apache_path = _path(env.home_path, 'apache')
 env.python = PYTHON
 env.app_user = APP_USER
 
+import StringIO
+
+class MyStream(StringIO.StringIO):
+    def __init__(self, s, name):
+        self.name = name
+        super(MyStream, self).__init__(s)
+ 
+def _copy_from_s3(bucket_name, resource, dest_path):
+    """Copy a resource from S3 to a remote file."""
+    bucket = _get_s3_con().get_bucket(bucket_name)
+    key = bucket.lookup(resource)
+    f = tempfile.NamedTemporaryFile(delete=False)
+    key.get_file(f)
+    f.close()
+    put(f.name, dest_path)
+    os.unlink(f.name)
+
 
 def _setup_ssh():
     with cd(env.ssh_path):
-        # TODO: get these files from S3
         if not exists('known_hosts'):
-            put('known_hosts', env.ssh_path) # TODO: can we cat this?
+            # TODO: should we cat this?
+            _copy_from_s3('knightlab.ops', 'deploy/ssh/known_hosts',
+                os.path.join(env.ssh_path, 'known_hosts'))
         if not exists('config'):
-            put('config', env.ssh_path)
+            _copy_from_s3('knightlab.ops', 'deploy/ssh/config',
+                os.path.join(env.ssh_path, 'config'))
         if not exists('github.key'):
-            put('github.key', env.ssh_path) # TODO: make this easily replaceable
+            # TODO: make github.key easily replaceable
+            _copy_from_s3('knightlab.ops', 'deploy/ssh/github.key',
+                os.path.join(env.ssh_path, 'github.key'))
             with cd(env.ssh_path):
                 run('chmod 0600 github.key')
      
@@ -149,7 +183,7 @@ def _link_apache_conf():
 
 def _get_ec2_reservations():
     try:
-        return _get_aws_con().get_all_instances()
+        return _get_ec2_con().get_all_instances()
     except boto.exception.EC2ResponseError, e:
         print "\nReceived error from AWS. Are your credentials correct?"
         print "Note: do not quote keys in boto config files."
@@ -195,6 +229,7 @@ def setup():
     require('settings', provided_by=[prd, stg])
     # TODO: support for branches? what is the workflow?
     #require('branch', provided_by=[stable, master, branch])
+
     _setup_ssh()
     _setup_directories()
     _setup_virtualenv()
@@ -210,4 +245,3 @@ def hosts():
     require('settings', provided_by=[prd, stg])
     for host in env.instances:
         print env.hosts
-    
