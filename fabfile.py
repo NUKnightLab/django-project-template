@@ -173,7 +173,6 @@ def _symlink(existing, link):
 
 
 def _link_apache_conf():
-    # TODO: provisioning should cat Include line to apache.conf
     apache_conf = _path(env.conf_path, env.settings, APACHE_CONF_NAME)
     if exists(apache_conf):
         run('mkdir -p %(apache_path)s' % env)
