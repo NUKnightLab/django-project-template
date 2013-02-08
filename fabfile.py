@@ -125,7 +125,6 @@ def _copy_from_s3(bucket_name, resource, dest_path):
 def _setup_ssh():
     with cd(env.ssh_path):
         if not exists('known_hosts'):
-            # TODO: should we cat this?
             _copy_from_s3('knightlab.ops', 'deploy/ssh/known_hosts',
                 os.path.join(env.ssh_path, 'known_hosts'))
         if not exists('config'):
