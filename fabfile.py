@@ -151,7 +151,6 @@ def _setup_virtualenv():
 
 def _clone_repo():
     """Clone the git repository."""
-    # TODO:set global config for git username and email
     run('git clone %(repo_url)s %(project_path)s' % env)
 
 
