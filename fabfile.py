@@ -294,9 +294,7 @@ def a2restart(graceful='y'):
 
 
 def mrostart():
-    """Start maintenance mode (maintenance/repair/operations).
-    Requires an IfDefine Apache config for MAINTENANCE that sets a Rewrite rule
-    to the maintenance page."""
+    """Start maintenance mode (maintenance/repair/operations)."""
     require('settings', provided_by=[prd, stg])
     _link_apache_conf(maint=True)
     a2restart()
