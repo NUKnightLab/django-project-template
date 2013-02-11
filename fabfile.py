@@ -35,7 +35,7 @@ import sys
 import tempfile
 import boto
 from boto import ec2
-from fabric.api import env, put, require, run
+from fabric.api import env, put, require, run, sudo
 from fabric.context_managers import cd, prefix
 from fabric.contrib.files import exists
 
@@ -47,6 +47,7 @@ PYTHON = 'python2.7'
 REPO_URL = 'git@github.com:Knight-News-Innovation-Lab/%s.git' % PROJECT_NAME
 CONF_DIRNAME = 'conf' # should contain stg & prd directories
 APACHE_CONF_NAME = 'apache' # inside conf/stg, conf/prd
+APACHE_MAINTENANCE_CONF_NAME = 'apache.maintenance'
 SSH_DIRNAME = '.ssh'
 USERS_HOME = '/home'
 
@@ -63,6 +64,12 @@ AWS_CREDENTIALS_ERR_MSG = """
 
 _ec2_con = None
 _s3_con = None
+
+
+def _do(yes_no):
+    """Boolean for yes/no values."""
+    return yes_no.lower().startswith('y')
+
 
 def _get_ec2_con():
     global _ec2_con
@@ -166,12 +173,18 @@ def _install_requirements():
 
 
 def _symlink(existing, link):
-    if not exists(link):
-        run('ln -s %s %s' % (existing, link))
+    """Removes link if it exists and creates the specified link."""
+    if exists(link):
+        run('rm %s' % link)
+    run('ln -s %s %s' % (existing, link))
 
 
-def _link_apache_conf():
-    apache_conf = _path(env.conf_path, env.settings, APACHE_CONF_NAME)
+def _link_apache_conf(maint=False):
+    if maint:
+        link_file = APACHE_MAINTENANCE_CONF_NAME
+    else:
+        link_file = APACHE_CONF_NAME
+    apache_conf = _path(env.conf_path, env.settings, link_file)
     if exists(apache_conf):
         run('mkdir -p %(apache_path)s' % env)
         link_path = _path(env.apache_path, env.project_name)
@@ -194,6 +207,8 @@ def _lookup_ec2_instances():
     into env."""
     instances = []
     prefix = '%s-app' % env.settings # currently only supporting app
+    ## SBB
+    prefix = 'knightlab-us-1'
     for r in _get_ec2_reservations():
         for i in r.instances:
             if i.tags.get('Name', '').startswith(prefix):
@@ -208,7 +223,6 @@ def _setup_env(env_type):
     if not env.hosts: # allow user to specify hosts
         env.hosts = ['%s@%s' % (env.app_user, i.public_dns_name) for i in
             env.instances]
-    print env.hosts
     
 
 def prd():
@@ -242,3 +256,71 @@ def hosts():
     require('settings', provided_by=[prd, stg])
     for host in env.instances:
         print env.hosts
+
+
+def checkout_latest():
+    """Pull the latest code."""
+    # TODO: Support branching? e.g.:
+    #run('cd %(repo_path)s; git checkout %(branch)s; git pull origin %(branch)s' % env)
+    run('cd %(project_path)s; git pull' % env)
+
+
+def a2start():
+    """Start apache.
+    apache2ctl start does not seem to work through fabric, thus uses init.d
+    """
+    require('settings', provided_by=[prd, stg])
+    run('sudo /etc/init.d/apache2 start')
+
+
+def a2stop(graceful='y'):
+    """Stop apache. Defaults to graceful stop. Specify graceful=n for
+    immediate stop."""
+    require('settings', provided_by=[prd, stg])
+    if _do(graceful):
+        run('sudo /usr/sbin/apache2ctl graceful-stop')
+    else:
+        run('sudo /usr/sbin/apache2ctl stop')
+
+    
+def a2restart(graceful='y'):
+    """Restart apache. Defaults to graceful restart. Specify graceful=n for
+    immediate restart."""
+    require('settings', provided_by=[prd, stg])
+    if _do(graceful):
+        run('sudo /usr/sbin/apache2ctl graceful')
+    else:
+        run('sudo /usr/sbin/apache2ctl restart')
+
+
+def mrostart():
+    """Start maintenance mode (maintenance/repair/operations).
+    Requires an IfDefine Apache config for MAINTENANCE that sets a Rewrite rule
+    to the maintenance page."""
+    require('settings', provided_by=[prd, stg])
+    _link_apache_conf(maint=True)
+    a2restart()
+
+
+def mrostop():
+    """End maintenance mode."""
+    require('settings', provided_by=[prd, stg])
+    _link_apache_conf()
+    a2restart()
+
+
+def deploy(mro='y', restart='y'):
+    """Deploy the latest version of the site to the server. Defaults to
+    setting maintenance mode during the deployment and restarting apache."""
+    require('settings', provided_by=[prd, stg])
+    if _do(mro):
+        mrostart()
+    #require('branch', provided_by=[stable, master, branch])
+    checkout_latest()
+    if _do(restart):
+        if _do(mro):
+            mrostop()
+        else:
+            a2restart()
+    # TODO: south_migrations()
+    # TODO: deploy_to_s3()
