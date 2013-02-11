@@ -30,6 +30,7 @@ To execute commands for a specific host, specify apps user @ remote host:
 
     fab -H apps@<public-dns> <env> <operation>
 """
+import fnmatch
 import os
 import sys
 import tempfile
@@ -40,6 +41,7 @@ from fabric.context_managers import cd, prefix
 from fabric.contrib.files import exists
 
 PROJECT_NAME = '{{ project_name }}'
+PROJECT_NAME = 'knightlab-us'
 
 # EXISTING SYSTEM AND REPO RESOURCES
 APP_USER = 'apps'
@@ -50,6 +52,8 @@ APACHE_CONF_NAME = 'apache' # inside conf/stg, conf/prd
 APACHE_MAINTENANCE_CONF_NAME = 'apache.maintenance'
 SSH_DIRNAME = '.ssh'
 USERS_HOME = '/home'
+S3_BUCKET = 'knightlab.sites'
+STATIC_DIRNAME = 'static'
 
 # DEPLOYMENT SETTINGS
 SITES_DIRNAME = 'sites'
@@ -111,13 +115,7 @@ env.apache_path = _path(env.home_path, 'apache')
 env.python = PYTHON
 env.app_user = APP_USER
 
-import StringIO
 
-class MyStream(StringIO.StringIO):
-    def __init__(self, s, name):
-        self.name = name
-        super(MyStream, self).__init__(s)
- 
 def _copy_from_s3(bucket_name, resource, dest_path):
     """Copy a resource from S3 to a remote file."""
     bucket = _get_s3_con().get_bucket(bucket_name)
@@ -130,6 +128,7 @@ def _copy_from_s3(bucket_name, resource, dest_path):
 
 
 def _setup_ssh():
+    # TODO: should this be part of provisioning?
     with cd(env.ssh_path):
         if not exists('known_hosts'):
             _copy_from_s3('knightlab.ops', 'deploy/ssh/known_hosts',
@@ -258,8 +257,8 @@ def hosts():
         print env.hosts
 
 
-def checkout_latest():
-    """Pull the latest code."""
+def checkout():
+    """Pull the latest code on remote servers."""
     # TODO: Support branching? e.g.:
     #run('cd %(repo_path)s; git checkout %(branch)s; git pull origin %(branch)s' % env)
     run('cd %(project_path)s; git pull' % env)
@@ -307,7 +306,35 @@ def mrostop():
     a2restart()
 
 
-def deploy(mro='y', restart='y'):
+def deploystatic(fnpattern='*'):
+    """Copy local static files to S3. Does not perform remote server operations.
+    Takes an optional filename matching pattern fnpattern. Requires that the
+    local git repository has no uncommitted changes."""
+    git_status = os.popen('git status').read()
+    ready_status = '# On branch master\nnothing to commit'
+    if True or git_status.startswith(ready_status):
+        print 'deploying to S3 ...'
+        bucket = _get_s3_con().get_bucket(S3_BUCKET)
+        matched_file = False
+        for path, dirs, files in os.walk(STATIC_DIRNAME):
+            for f in fnmatch.filter(files, fnpattern):
+                matched_file = True
+                dest = os.path.join(env.project_name, path, f)
+                print dest
+                key = boto.s3.key.Key(bucket)
+                key.key = dest
+                fn = os.path.join(path, f)
+                key.set_contents_from_filename(fn)
+                key.set_acl('public-read')
+        if not matched_file:
+            print '\nNothing to deploy'
+    else:
+        print """
+        You have uncommitted local code changes. Please commit and push
+        changes before deploying to S3."""
+
+
+def deploy(mro='y', restart='y', static='y'):
     """Deploy the latest version of the site to the server. Defaults to
     setting maintenance mode during the deployment and restarting apache."""
     require('settings', provided_by=[prd, stg])
@@ -315,10 +342,11 @@ def deploy(mro='y', restart='y'):
         mrostart()
     #require('branch', provided_by=[stable, master, branch])
     checkout_latest()
+    if _do(static):
+        deploystatic()
     if _do(restart):
         if _do(mro):
             mrostop()
         else:
             a2restart()
     # TODO: south_migrations()
-    # TODO: deploy_to_s3()
