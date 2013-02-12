@@ -347,3 +347,12 @@ def deploy(mro='y', restart='y', static='y'):
         else:
             a2restart()
     # TODO: south_migrations()
+
+
+def destroy():
+    """Remove the project directory and config files."""
+    require('settings', provided_by=[prd, stg])
+    apache_link = _path(env.apache_path, env.project_name)
+    if exists(apache_link):
+        run('rm %s' % apache_link)
+    run('rm -rf %(project_path)s' % env) 
