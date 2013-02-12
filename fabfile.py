@@ -206,8 +206,6 @@ def _lookup_ec2_instances():
     into env."""
     instances = []
     prefix = '%s-app' % env.settings # currently only supporting app
-    ## SBB
-    prefix = 'knightlab-us-1'
     for r in _get_ec2_reservations():
         for i in r.instances:
             if i.tags.get('Name', '').startswith(prefix):
