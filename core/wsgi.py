@@ -14,6 +14,12 @@ framework.
 
 """
 import os
+import site
+import sys
+
+site.addsitedir('/home/apps/env/{{ project_name }}/lib/python2.7/site-packages')
+sys.path.append('/home/apps/sites/{{ project_name }}')
+sys.stdout = sys.stderr
 
 # We defer to a DJANGO_SETTINGS_MODULE already in the environment. This breaks
 # if running multiple sites in the same mod_wsgi process. To fix this, use
