@@ -41,7 +41,6 @@ from fabric.context_managers import cd, prefix
 from fabric.contrib.files import exists
 
 PROJECT_NAME = '{{ project_name }}'
-PROJECT_NAME = 'knightlab-us'
 
 # EXISTING SYSTEM AND REPO RESOURCES
 APP_USER = 'apps'
