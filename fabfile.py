@@ -39,6 +39,8 @@ from boto import ec2
 from fabric.api import env, put, require, run, sudo
 from fabric.context_managers import cd, prefix
 from fabric.contrib.files import exists
+from fabric.colors import red
+from fabric.utils import warn
 
 PROJECT_NAME = '{{ project_name }}'
 
@@ -358,7 +360,10 @@ def destroy():
     """Remove the project directory and config files."""
     require('settings', provided_by=[prd, stg])
     msg = """
-        Destroy %(project_name)s project deployment for %(settings)s? (y/n) """
+        This will remove all %(project_name)s project files for %(settings)s."""
+    warn(red(msg % env))
+    msg = """
+        Destroy %(project_name)s project %(settings)s deployment? (y/n) """
     if not _confirm(msg % env):
         print "aborting ..."
         return
