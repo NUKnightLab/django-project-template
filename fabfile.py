@@ -55,6 +55,7 @@ SSH_DIRNAME = '.ssh'
 USERS_HOME = '/home'
 S3_BUCKET = 'knightlab.sites'
 STATIC_DIRNAME = 'static'
+VIRTUALENV_SYSTEM_SITE_PACKAGES = False
 
 # DEPLOYMENT SETTINGS
 SITES_DIRNAME = 'sites'
@@ -157,7 +158,10 @@ def _setup_directories():
 
 def _setup_virtualenv():
     """Create a virtualenvironment."""
-    run('virtualenv -p %(python)s %(ve_path)s' % env)
+    if VIRTUALENV_SYSTEM_SITE_PACKAGES:
+        run('virtualenv -p %(python)s --system-site-packages %(ve_path)s' % env)
+    else:
+        run('virtualenv -p %(python)s %(ve_path)s' % env)
 
 
 def _clone_repo():
