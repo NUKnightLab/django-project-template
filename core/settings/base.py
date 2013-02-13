@@ -14,8 +14,6 @@ PROJECT_ROOT = dirname(CORE_ROOT)
 
 MEDIA_ROOT = normpath(join(PROJECT_ROOT, 'uploads'))
 
-STATIC_ROOT = '/var/www/{{ project_name }}/'
-
 STATICFILES_DIRS = (
     normpath(join(PROJECT_ROOT, 'static')),
 )
@@ -50,11 +48,9 @@ MEDIA_URL = '/uploads/' # include trailing slash
 
 STATIC_URL = '/static/' # include trailing slash
 
-# We are preferring to put all static media in <project>/static, thus
-# static files finders are not needed for most projects.
 STATICFILES_FINDERS = (
-    #'django.contrib.staticfiles.finders.FileSystemFinder',
-    #'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
     # 'django.contrib.staticfiles.finders.DefaultStorageFinder',
 )
 

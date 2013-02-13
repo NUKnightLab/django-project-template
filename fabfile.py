@@ -35,6 +35,7 @@ import os
 import sys
 import tempfile
 import boto
+from random import choice
 from boto import ec2
 from fabric.api import env, put, require, run, sudo
 from fabric.context_managers import cd, prefix
@@ -53,7 +54,6 @@ APACHE_CONF_NAME = 'apache' # inside conf/stg, conf/prd
 APACHE_MAINTENANCE_CONF_NAME = 'apache.maintenance'
 SSH_DIRNAME = '.ssh'
 USERS_HOME = '/home'
-S3_BUCKET = 'knightlab.sites'
 STATIC_DIRNAME = 'static'
 VIRTUALENV_SYSTEM_SITE_PACKAGES = False
 
@@ -242,7 +242,25 @@ def stg():
     _setup_env('stg')
 
 
-def setup():
+def _random_key(length=50,
+        chars = 'abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)'):
+    return ''.join([choice(chars) for i in range(length)])
+
+
+def genkey():
+    """Generate a random key."""
+    print
+    print _random_key()
+
+
+def _build_django_siteconf():
+    require('settings', provided_by=[prd, stg])
+    secret_key = _random_key()
+    run("""echo "SECRET_KEY='%s'" >> %s""" % (secret_key,
+        os.path.join(env.project_path, 'core', 'settings', 'site.py')))
+
+
+def setup(django='y'):
     """Setup new application deployment. Run only once per project."""
     require('settings', provided_by=[prd, stg])
     # TODO: support for branches? what is the workflow?
@@ -250,10 +268,12 @@ def setup():
 
     _setup_ssh()
     _setup_directories()
-    _setup_virtualenv()
     _clone_repo()
-    _install_requirements()
-    _link_apache_conf()
+    if _do(django):
+        _setup_virtualenv()
+        _build_django_siteconf()
+        _install_requirements()
+        _link_apache_conf()
 
 
 def hosts():
@@ -322,13 +342,20 @@ def deploystatic(fnpattern='*'):
     ready_status = '# On branch master\nnothing to commit'
     if True or git_status.startswith(ready_status):
         print 'deploying to S3 ...'
-        bucket = _get_s3_con().get_bucket(S3_BUCKET)
+        if env.settings == 'stg':
+            bucket_name = 'media.beta.knightlab.us'
+        elif env.settings == 'prd':
+            bucket_name = 'media.knightlab.us'
+        else:
+            assert False, "Unhandled bucket_name condition"
+        bucket = _get_s3_con().get_bucket(bucket_name)
         matched_file = False
         for path, dirs, files in os.walk(STATIC_DIRNAME):
             for f in fnmatch.filter(files, fnpattern):
                 matched_file = True
-                dest = os.path.join(env.project_name, path, f)
-                print dest
+                dest = os.path.join(env.project_name,
+                    path[len(STATIC_DIRNAME)+1:], f)
+                print 'Copying file to %s:%s' % (bucket_name, dest)
                 key = boto.s3.key.Key(bucket)
                 key.key = dest
                 fn = os.path.join(path, f)
@@ -341,15 +368,16 @@ def deploystatic(fnpattern='*'):
         You have uncommitted local code changes. Please commit and push
         changes before deploying to S3."""
 
-
-def deploy(mro='y', restart='y', static='y'):
+def deploy(mro='y', restart='y', static='y', requirements='n'):
     """Deploy the latest version of the site to the server. Defaults to
     setting maintenance mode during the deployment and restarting apache."""
     require('settings', provided_by=[prd, stg])
     if _do(mro):
         mrostart()
     #require('branch', provided_by=[stable, master, branch])
-    checkout_latest()
+    checkout()
+    if _do(requirements):
+        _install_requirements()
     if _do(static):
         deploystatic()
     if _do(restart):
@@ -375,3 +403,4 @@ def destroy():
     if exists(apache_link):
         run('rm %s' % apache_link)
     run('rm -rf %(project_path)s' % env) 
+    run('rm -rf %(ve_path)s' % env)
