@@ -74,6 +74,11 @@ def _do(yes_no):
     return yes_no.lower().startswith('y')
 
 
+def _confirm(msg):
+    """Get confirmation from the user."""
+    return _do(raw_input(msg))
+
+
 def _get_ec2_con():
     global _ec2_con
     if _ec2_con is None:
@@ -352,6 +357,11 @@ def deploy(mro='y', restart='y', static='y'):
 def destroy():
     """Remove the project directory and config files."""
     require('settings', provided_by=[prd, stg])
+    msg = """
+        Destroy %(project_name)s project deployment for %(settings)s? (y/n) """
+    if not _confirm(msg % env):
+        print "aborting ..."
+        return
     apache_link = _path(env.apache_path, env.project_name)
     if exists(apache_link):
         run('rm %s' % apache_link)
