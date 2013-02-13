@@ -1,5 +1,10 @@
 # Django settings for {{ project_name }} project.
 from os.path import abspath, basename, dirname, join, normpath
+try:
+    # secret site-specific stuff should go in site.py. Keep it out of github!
+    from .site import *
+except ImportError:
+    pass
 
 DEBUG = False
 TEMPLATE_DEBUG = DEBUG
