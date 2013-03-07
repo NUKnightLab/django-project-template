@@ -10,6 +10,6 @@
 
     WSGIDaemonProcess {{ project_name }} display-name=%{GROUP} maximum-requests=10000
     WSGIProcessGroup {{ project_name }}
-    WSGIScriptAlias / /home/apps/sites{{ project_name }}/conf/stg/wsgi.py
+    WSGIScriptAlias / /home/apps/sites/{{ project_name }}/conf/stg/wsgi.py
 
 </VirtualHost>
