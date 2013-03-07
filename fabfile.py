@@ -343,7 +343,7 @@ def deploystatic(fnpattern='*'):
     if True or git_status.startswith(ready_status):
         print 'deploying to S3 ...'
         if env.settings == 'stg':
-            bucket_name = 'media.beta.knightlab.us'
+            bucket_name = 'media.knilab.com'
         elif env.settings == 'prd':
             bucket_name = 'media.knightlab.us'
         else:
