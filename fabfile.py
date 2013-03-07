@@ -48,7 +48,7 @@ PROJECT_NAME = '{{ project_name }}'
 # EXISTING SYSTEM AND REPO RESOURCES
 APP_USER = 'apps'
 PYTHON = 'python2.7'
-REPO_URL = 'git@github.com:Knight-News-Innovation-Lab/%s.git' % PROJECT_NAME
+REPO_URL = 'git@github.com:NUKnightLab/%s.git' % PROJECT_NAME
 CONF_DIRNAME = 'conf' # should contain stg & prd directories
 APACHE_CONF_NAME = 'apache' # inside conf/stg, conf/prd
 APACHE_MAINTENANCE_CONF_NAME = 'apache.maintenance'
