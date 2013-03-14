@@ -17,6 +17,10 @@ Note: Do not quote key strings in the config files.
 For AWS (boto) config details, see:
     http://boto.readthedocs.org/en/latest/boto_config_tut.html#credentials
 
+Set a WORKON_HOME environment variable.  This is the root directory for all
+of your virtual environments.  If you use virtualenvwrapper, this is already
+set for you. If not, then set it manually.
+
 USAGE:
 
 fab <env> <operation>
@@ -178,6 +182,15 @@ def _run_in_ve(command):
         run(command)
 
 
+def _run_in_ve_local(command):
+    """Execute the command inside the local virtualenv."""
+    workon_home = os.getenv('WORKON_HOME')
+    if not workon_home:
+        abort('WORKON_HOME environment variable is not set!')
+    activate_path = _path(workon_home, env.project_name, 'bin/activate')
+    local('source %s && ' % activate_path + command )
+
+    
 def _install_requirements():
     with cd(env.project_path):
         if exists('requirements.txt'):
