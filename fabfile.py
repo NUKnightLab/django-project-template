@@ -59,6 +59,7 @@ VIRTUALENV_SYSTEM_SITE_PACKAGES = False
 
 # DEPLOYMENT SETTINGS
 SITES_DIRNAME = 'sites'
+LOG_DIRNAME = 'log'
 ENV_DIRNAME = 'env' # virtualenvs go here
 AWS_CREDENTIALS_ERR_MSG = """
     Unable to connect to AWS. Check your credentials. boto attempts to
@@ -113,6 +114,7 @@ env.repo_url = REPO_URL
 env.home_path = _path(USERS_HOME, APP_USER)
 env.ssh_path = _path(env.home_path, SSH_DIRNAME)
 env.sites_path = _path(env.home_path, SITES_DIRNAME)
+env.log_path = _path(env.home_path, LOG_DIRNAME, PROJECT_NAME)
 env.project_path = _path(env.sites_path, env.project_name)
 env.conf_path = _path(env.project_path, CONF_DIRNAME)
 env.env_path = _path(env.home_path, ENV_DIRNAME)
@@ -153,6 +155,7 @@ def _setup_ssh():
 
 def _setup_directories():
     run('mkdir -p %(sites_path)s' % env)
+    run('mkdir -p %(log_path)s' %env)
     run('mkdir -p %(ve_path)s' % env)
 
 
@@ -403,4 +406,5 @@ def destroy():
     if exists(apache_link):
         run('rm %s' % apache_link)
     run('rm -rf %(project_path)s' % env) 
+    run('rm -rf %(log_path)s' % env) 
     run('rm -rf %(ve_path)s' % env)
