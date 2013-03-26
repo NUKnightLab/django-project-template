@@ -36,6 +36,7 @@ To execute commands for a specific host, specify apps user @ remote host:
 """
 import fnmatch
 import os
+import re
 import sys
 import tempfile
 import boto
@@ -46,6 +47,7 @@ from fabric.context_managers import cd, prefix
 from fabric.contrib.files import exists
 from fabric.colors import red
 from fabric.utils import warn
+from fabric.decorators import roles, runs_once
 
 PROJECT_NAME = '{{ project_name }}'
 
@@ -127,6 +129,7 @@ env.activate_path = _path(env.ve_path, 'bin', 'activate')
 env.apache_path = _path(env.home_path, 'apache')
 env.python = PYTHON
 env.app_user = APP_USER
+env.roledefs = { 'app':[], 'work':[], 'pgis':[], 'mongo':[] }
 
 
 def _copy_from_s3(bucket_name, resource, dest_path):
@@ -204,6 +207,7 @@ def _symlink(existing, link):
     run('ln -s %s %s' % (existing, link))
 
 
+@roles('app')
 def _link_apache_conf(maint=False):
     if maint:
         link_file = APACHE_MAINTENANCE_CONF_NAME
@@ -228,15 +232,16 @@ def _get_ec2_reservations():
 
 
 def _lookup_ec2_instances():
-    """Get the EC2 instances for this working environment and load them
-    into env."""
-    instances = []
-    prefix = '%s-app' % env.settings # currently only supporting app
+    """Get the EC2 instances by role definition for this working environment 
+    and load them into env.roledefs"""
+    regex = re.compile(r'%s-(?P<role>[a-zA-Z]+)[0-9]+' % env.settings)
     for r in _get_ec2_reservations():
         for i in r.instances:
-            if i.tags.get('Name', '').startswith(prefix):
-                instances.append(i)
-    env.instances = instances
+            m = regex.match(i.tags.get('Name', ''))
+            if m:
+                env.roledefs[m.group('role')].append(
+                    '%s@%s' % (env.app_user, i.public_dns_name) 
+                )
 
 
 def _setup_env(env_type):
@@ -276,20 +281,23 @@ def _build_django_siteconf():
         os.path.join(env.project_path, 'core', 'settings', 'site.py')))
 
 
-def setup(django='y'):
-    """Setup new application deployment. Run only once per project."""
+def _setup_project(django='y'):
+    """Setup new application deployment.  Run only once per project."""
     require('settings', provided_by=[prd, stg])
-    # TODO: support for branches? what is the workflow?
-    #require('branch', provided_by=[stable, master, branch])
-
     _setup_ssh()
     _setup_directories()
     _clone_repo()
-    if _do(django):
-        _setup_virtualenv()
-        _build_django_siteconf()
-        _install_requirements()
-        _link_apache_conf()
+    _setup_virtualenv()
+    _build_django_siteconf()
+    _install_requirements()
+
+       
+@roles('app','work')
+def setup(django='y'):
+    """Setup new application deployment. Run only once per project."""
+    require('settings', provided_by=[prd, stg])
+    execute(_setup_project, django=django)
+    execute(_link_apache_conf)
 
 
 def hosts():
@@ -301,6 +309,7 @@ def hosts():
         print env.hosts
 
 
+@roles('app', 'work')    
 def checkout():
     """Pull the latest code on remote servers."""
     # TODO: Support branching? e.g.:
@@ -308,6 +317,7 @@ def checkout():
     run('cd %(project_path)s; git pull' % env)
 
 
+@roles('app')    
 def a2start():
     """Start apache.
     apache2ctl start does not seem to work through fabric, thus uses init.d
@@ -316,6 +326,7 @@ def a2start():
     run('sudo /etc/init.d/apache2 start')
 
 
+@roles('app')    
 def a2stop(graceful='y'):
     """Stop apache. Defaults to graceful stop. Specify graceful=n for
     immediate stop."""
@@ -326,6 +337,7 @@ def a2stop(graceful='y'):
         run('sudo /usr/sbin/apache2ctl stop')
 
     
+@roles('app')    
 def a2restart(graceful='y'):
     """Restart apache. Defaults to graceful restart. Specify graceful=n for
     immediate restart."""
@@ -336,6 +348,7 @@ def a2restart(graceful='y'):
         run('sudo /usr/sbin/apache2ctl restart')
 
 
+@roles('app')    
 def mrostart():
     """Start maintenance mode (maintenance/repair/operations)."""
     require('settings', provided_by=[prd, stg])
@@ -343,6 +356,7 @@ def mrostart():
     a2restart()
 
 
+@roles('app')    
 def mrostop():
     """End maintenance mode."""
     require('settings', provided_by=[prd, stg])
@@ -350,6 +364,7 @@ def mrostop():
     a2restart()
 
 
+@runs_once
 def deploystatic(fnpattern='*'):
     """Copy local static files to S3. Does not perform remote server operations.
     Takes an optional filename matching pattern fnpattern. Requires that the
@@ -404,6 +419,7 @@ def deploy(mro='y', restart='y', static='y', requirements='n'):
     # TODO: south_migrations()
 
 
+@roles('app', 'work')
 def destroy():
     """Remove the project directory and config files."""
     require('settings', provided_by=[prd, stg])
