@@ -1,6 +1,6 @@
 <VirtualHost *:80>
-    ServerName {{ project_name }}.knightlabprojects.com
-    ServerAlias {{ project_name }}.knightlabprojects.com
+    ServerName {{ project_name }}.knilab.com
+    ServerAlias {{ project_name }}.knilab.com
     ServerAdmin admin@knilab.com
     ErrorLog /var/log/apache2/{{ project_name }}.log
 

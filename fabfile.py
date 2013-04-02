@@ -47,6 +47,7 @@ from fabric.context_managers import cd, prefix
 from fabric.contrib.files import exists
 from fabric.colors import red
 from fabric.utils import warn
+from fabric.tasks import execute
 from fabric.decorators import roles, runs_once
 
 PROJECT_NAME = '{{ project_name }}'
@@ -247,10 +248,8 @@ def _lookup_ec2_instances():
 def _setup_env(env_type):
     """Setup the working environment as appropriate for stg, prd."""
     env.settings = env_type
-    _lookup_ec2_instances()
     if not env.hosts: # allow user to specify hosts
-        env.hosts = ['%s@%s' % (env.app_user, i.public_dns_name) for i in
-            env.instances]
+        _lookup_ec2_instances()
     
 
 def prd():
