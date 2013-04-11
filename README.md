@@ -54,6 +54,7 @@ Required environment variables:
 -------------------------------
 - DJANGO_SETTINGS_MODULE
 - DJANGO_SECRET_KEY
+- WORKON_HOME (set manually if not using mkvirtualenv)
 
 **Specify additional environment variables here**
 
