@@ -2,6 +2,6 @@
 # username
 # Execute development server with:
 # django-admin.py runserver --settings=core.settings.user
-from .local import *
+from .loc import *
 
 

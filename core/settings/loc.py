@@ -1,4 +1,4 @@
-"""settings.local is intended to be a shared local settings file that is to
+"""settings.loc is intended to be a shared local settings file that is to
 be used for development environments. If you have user-specific settings, 
 please put them in a <username>.py file that imports the local settings. See
 the user.py example.

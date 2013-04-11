@@ -23,7 +23,7 @@ virtual environment):
 
 Run the development server:
 
-    django-admin.py runserver --settings=core.settings.local
+    django-admin.py runserver --settings=core.settings.loc
 
 Alternatively, indicate the settings with the DJANGO_SETTINGS_MODULE
 environment variable.
@@ -34,7 +34,7 @@ directory on your PYTHONPATH with a dot (.):
 
     export PYTHONPATH=$PYTHONPATH:.
 
-For user-specific settings, do not modify the local.py file. Rather, create
+For user-specific settings, do not modify the loc.py file. Rather, create
 a <username>.py settings file that imports the local settings. It is
 recommended that you push your user-specific settings into version control
 along with everything else, **but should not include any secrets.**
