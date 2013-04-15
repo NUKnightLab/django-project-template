@@ -1,3 +1,10 @@
 *.log
 *.pyc
 core/settings/site.py
+
+# OS generated files #
+######################
+.DS_Store?
+ehthumbs.db
+Icon?
+Thumbs.db
