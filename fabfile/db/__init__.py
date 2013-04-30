@@ -78,8 +78,14 @@ def load_module():
                 
                 env.db.setup_env()
             else:
+                env.db_type = 'dummy'               
+                env.db = importlib.import_module(
+                    '.%(db_type)s' % env, 'fabfile.db')
                 warn('Could not determine db type (no ENGINE match')                
         else:
+            env.db_type = 'dummy'               
+            env.db = importlib.import_module(
+                '.%(db_type)s' % env, 'fabfile.db')
             warn('Could not determine db type (no DATABASES match)')                
     except ImportError, e:
         raise ImportError(
