@@ -2,7 +2,7 @@
 from os import environ
 from .base import *
 
-STATIC_URL = 'https://s3.amazonaws.com/media.knightlab.us/textract/'
+STATIC_URL = 'https://s3.amazonaws.com/media.knightlab.com/{{ project_name }}/'
 
 # should these be in site.py?
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
