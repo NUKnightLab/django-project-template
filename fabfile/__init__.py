@@ -300,7 +300,7 @@ def _run_in_ve_local(command):
 def prd():
     """Work on production environment."""
     _setup_env('prd')
-    os.environ['AWS_STORAGE_BUCKET_NAME'] = 'media.knightlab.us'
+    os.environ['AWS_STORAGE_BUCKET_NAME'] = 'media.knightlab.com'
     
 @task
 def stg():

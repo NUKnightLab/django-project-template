@@ -83,8 +83,8 @@ def setup():
     if result.failed:
         notice('Creating template database template_postgis')
         env.doit('createdb -h %(host)s -U %(postgis_user)s template_postgis' % env)
-        _psql('-f %(pgis_root)s/postgis.sql template_postgis')
-        _psql('-f %(pgis_root)s/spatial_ref_sys.sql template_postgis')
+        _psql('-f %(postgis_root)s/postgis.sql template_postgis')
+        _psql('-f %(postgis_root)s/spatial_ref_sys.sql template_postgis')
     else:
         notice('Template database template_postgis already exists')
        
