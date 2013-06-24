@@ -50,7 +50,6 @@ import db
 
 # PROJECT-SPECIFIC SETTINGS
 PROJECT_NAME = '{{ project_name }}'
-DB_USER = ''
 
 # COMMON SETTINGS
 PYTHON = 'python2.7'
@@ -84,7 +83,6 @@ _s3_con = None
 
 
 env.app_user = APP_USER
-env.db_user = DB_USER
 env.project_name = PROJECT_NAME
 env.python = PYTHON
 env.repo_url = REPO_URL

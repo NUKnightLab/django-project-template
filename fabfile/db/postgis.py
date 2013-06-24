@@ -18,7 +18,7 @@ from . import django_sync
 
 
 def _psql(cmd, host='', user='', prefix=''):
-    c = ' psql -h '+(host or env.host)+' -U '+(user or env.postgis_user)+ ' '
+    c = ' psql -h '+(host or env.host)+' -U '+(user or env.db_root_user)+ ' '
     return env.doit((prefix+c+cmd) % env)
     
     
@@ -62,14 +62,19 @@ def _psql_pipe_data(f, host='', user=''):
         warn('Skipping file, unknown format (%s)' % f)  
 
 
-def setup_env():
+def setup_env(conf):
     """Setup the working environment as appropriate for loc, stg, prd."""    
     if env.settings == 'loc':
-        env.postgis_user = env.local_user
+        env.db_root_user = env.local_user
         env.postgis_root = '/usr/local/share/postgis'
     else:
-        env.postgis_user = 'postgres'
+        env.db_root_user = 'postgres'
         env.postgis_root = '/usr/share/postgresql/9.1/contrib/postgis-1.5'
+    
+    env.db_name = conf['NAME']
+    env.db_user = conf['USER']
+    env.db_password = conf['PASSWORD'] 
+    env.db_host = conf['HOST']
     
  
 @roles('pgis')    
@@ -82,7 +87,7 @@ def setup():
         result = _psql('-l | grep "template_postgis "')
     if result.failed:
         notice('Creating template database template_postgis')
-        env.doit('createdb -h %(host)s -U %(postgis_user)s template_postgis' % env)
+        env.doit('createdb -h %(host)s -U %(db_root_user)s template_postgis' % env)
         _psql('-f %(postgis_root)s/postgis.sql template_postgis')
         _psql('-f %(postgis_root)s/spatial_ref_sys.sql template_postgis')
     else:
@@ -90,30 +95,30 @@ def setup():
        
     # Create the project database
     with hide('warnings'), settings(warn_only=True):
-        result = _psql('-l | grep "%(project_name)s "')
+        result = _psql('-l | grep "%(db_name)s "')
     if result.failed:
-        notice('Creating database %(project_name)s from template' % env)
-        env.doit('createdb -h %(host)s -U %(postgis_user)s -T template_postgis %(project_name)s' % env)
+        notice('Creating database %(db_name)s from template' % env)
+        env.doit('createdb -h %(host)s -U %(db_root_user)s -T template_postgis %(db_name)s' % env)
         created_db = True
     else:
-        notice('Database %(project_name)s already exists' % env)
+        notice('Database %(db_name)s already exists' % env)
         
     # Create the database user
     with hide('warnings'), settings(warn_only=True):
-        result = _psql('-c "SELECT rolname FROM pg_roles" %(project_name)s | grep "%(db_user)s"')
+        result = _psql('-c "SELECT rolname FROM pg_roles" %(db_name)s | grep "%(db_user)s"')
     if result.failed:
         notice('Creating database user %(db_user)s' % env)
         _psql('-c "' \
             'CREATE USER %(db_user)s;' \
-            'GRANT ALL PRIVILEGES ON DATABASE %(project_name)s to %(db_user)s;' \
+            'GRANT ALL PRIVILEGES ON DATABASE %(db_name)s to %(db_user)s;' \
             'ALTER TABLE geometry_columns OWNER TO %(db_user)s;' \
             'ALTER TABLE spatial_ref_sys OWNER TO %(db_user)s;' \
-            '" %(project_name)s')
+            '" %(db_name)s')
     elif created_db:
         _psql('-c "' \
             'ALTER TABLE geometry_columns OWNER TO %(db_user)s;' \
             'ALTER TABLE spatial_ref_sys OWNER TO %(db_user)s;' \
-            '" %(project_name)s')
+            '" %(db_name)s')
     else:
         notice('Database user %(db_user)s already exists' % env)
 
@@ -152,24 +157,24 @@ def seed(sample='n'):
 @roles('pgis')
 def destroy():
     """Remove the database and user."""   
-    warn('This will delete the %(project_name)s db and %(db_user)s user ' \
+    warn('This will delete the %(db_name)s db and %(db_user)s user ' \
         'for %(settings)s on %(host)s.')        
-    msg = 'Destroy %(project_name)s database and %(db_user)s user for ' \
+    msg = 'Destroy %(db_name)s database and %(db_user)s user for ' \
         '%(settings)s deployment? (y/n) '
     if not confirm(msg % env):
         abort('Cancelling')
         
     with hide('warnings'):
         with settings(warn_only=True):
-            result = _psql('-l | grep "%(project_name)s "')
+            result = _psql('-l | grep "%(db_name)s "')
         if result.failed:
-            notice('Database %(project_name)s does not exist' % env)
+            notice('Database %(db_name)s does not exist' % env)
             return
                 
         # Drop database user
         with settings(warn_only=True):
             result = _psql(
-                '-c "SELECT rolname FROM pg_roles" %(project_name)s' \
+                '-c "SELECT rolname FROM pg_roles" %(db_name)s' \
                 ' | grep "%(db_user)s"')
         if result.failed:
             notice('Database user %(db_user)s does not exist' % env)
@@ -178,16 +183,16 @@ def destroy():
             _psql('-c "' \
                 'DROP OWNED BY %(db_user)s;' \
                 'DROP USER %(db_user)s;' \
-                '" %(project_name)s')
+                '" %(db_name)s')
         
         # Drop project database
         with settings(warn_only=True):
-            result = _psql('-l | grep "%(project_name)s "')
+            result = _psql('-l | grep "%(db_name)s "')
         if result.failed:
-            notice('Database %(project_name)s does not exist' % env)
+            notice('Database %(db_name)s does not exist' % env)
         else:
-            notice('Dropping database %(project_name)s' % env)
-            env.doit('dropdb -h %(host)s -U %(postgis_user)s %(project_name)s' % env)
+            notice('Dropping database %(db_name)s' % env)
+            env.doit('dropdb -h %(host)s -U %(db_root_user)s %(db_name)s' % env)
     
     
 

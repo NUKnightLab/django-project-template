@@ -25,7 +25,7 @@ attribute follows the Django convention:
         
 Each module should define these public methods:
 
-    setup_env()
+    setup_env(conf)
         Set any necessary variables in env (e.g. filepath, system user)
         
     setup()
@@ -68,7 +68,8 @@ def load_module():
         mod = sys.modules[mod_name]
         
         if hasattr(mod, 'DATABASES'):
-            engine = mod.DATABASES.get('default', {}).get('ENGINE', '')
+            conf = mod.DATABASES.get('default', {})
+            engine = conf.get('ENGINE', '')
             m = re.match(r'.*\.(?P<db_type>[a-zA-Z0-9]+)$', engine)
             if m:
                 env.db_type = m.group('db_type')                
@@ -76,7 +77,7 @@ def load_module():
                     '.%(db_type)s' % env, 'fabfile.db')
                 notice('Loaded db module for %(db_type)s' % env)
                 
-                env.db.setup_env()
+                env.db.setup_env(conf)
             else:
                 env.db_type = 'dummy'               
                 env.db = importlib.import_module(
