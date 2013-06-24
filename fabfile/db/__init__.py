@@ -89,8 +89,10 @@ def load_module():
                 '.%(db_type)s' % env, 'fabfile.db')
             warn('Could not determine db type (no DATABASES match)')                
     except ImportError, e:
-        raise ImportError(
-            'Could not import settings module "%s": %s' % (mod_name, e))
+        env.db_type = 'dummy'               
+        env.db = importlib.import_module(
+            '.%(db_type)s' % env, 'fabfile.db')
+        warn('Could not import settings module "%s": %s' % (mod_name, e))
  
 
 @require_settings

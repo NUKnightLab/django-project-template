@@ -184,6 +184,8 @@ def _clone_repo():
     run('git clone %(repo_url)s %(project_path)s' % env)
 
     
+@roles('app','work')
+@require_settings(allow=['stg','prd'])
 def _install_requirements():
     with cd(env.project_path):
         if exists('requirements.txt'):
