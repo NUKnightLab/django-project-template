@@ -17,14 +17,14 @@ from ..utils import notice, warn, abort, path, ls, do, confirm
 from . import django_sync
 
 
-def _mysql(cmd, prefix=''):
-    c = ' mysql -h %(db_host)s -u %(db_user)s '
-    if env.db_password:
-        c += '-p"%(db_password)s" '
-    return env.doit((prefix+c+cmd) % env)
+def _mysql(postfix, prefix=''):
+    c = ' mysql -h %(mysql_host)s -u %(mysql_user)s '
+    if env.mysql_password:
+        c += '-p"%(mysql_password)s" '
+    return env.doit((prefix+c+postfix) % env)
     
     
-def _mysql_pipe_data(f, host='', user=''):
+def _mysql_pipe_data(f):
     """
     Pipe data from a file to the db.  Valid types of files:
     
@@ -36,48 +36,46 @@ def _mysql_pipe_data(f, host='', user=''):
 
     Files that do not follow these naming conventions are skipped.
     """    
-    ## TO DO ##
-    warn('db.mysql._mysql_pipe_data() not implemented')
+    (other, ext) = os.path.splitext(f)
+    ext = ext.lower()
+    if ext.lower() in ('.gz', '.gzip', '.zip', '.Z'):
+        cmd = 'gunzip -c'
+        (other, ext) = os.path.splitext(other) 
+        ext = ext.lower()  
+    else:
+        cmd = 'cat'
+        
+    if ext == '.sql':
+        _mysql(env.mysql_name, prefix='%s %s |' % (cmd, f))
+    else:
+        warn('Skipping file, unknown format (%s)' % f)     
 
 
 def setup_env(conf):
     """Setup the working environment as appropriate for loc, stg, prd."""  
-    #
-    # TO DO: SET A ROOT USER
-    # If we want to be able to create/delete the database
-    # Not sure how to do that with RDS, since the root user is different
-    # on every RDS instance.
-    #
-    env.db_name = conf['NAME']
-    env.db_user = conf['USER']
-    env.db_password = conf['PASSWORD']
-    env.db_host = conf['HOST']
+    env.mysql_name = conf['NAME']
+    env.mysql_user = conf['USER']
+    env.mysql_password = conf['PASSWORD']
+    env.mysql_host = conf['HOST']
     
  
 @roles('app')
 @runs_once    
 def setup():
-    """Create the project database and user."""
-    created_db = False
+    """
+    Create the project database and user.
            
-    # Create the project database
-    # ACTUALLY JUST CHECK TO MAKE SURE IT EXISTS
+    For now, just check to make sure they exist, because the creation of either
+    requires a root user/password, and I'm not sure how that will work.
+    """
     with hide('warnings'), settings(warn_only=True):
-        result = _mysql('-e "SHOW DATABASES;" | grep "^%(db_name)s$"')
+        result = _mysql('-e "SHOW DATABASES;" | grep "^%(mysql_name)s$"')
     if result.failed:
-        abort('Database "%(db_name)s" does not exist on host %(db_host)s' % env)
+        abort('Error connecting to "%(mysql_name)s" as "%(mysql_user)s"' \
+            ' on host %(mysql_host)s:' % env)
     else:
-        notice('Database "%(db_name)s" exists on host %(db_host)s' % env)
-        
-    # Create the database user
-    # ACTUALLY JUST MAKE SURE IT EXISTS
-    # TO-DO... need to do this with the root user
-    #with hide('warnings'), settings(warn_only=True):
-    #    result = _mysql('-e "SELECT User FROM mysql.user;" | grep "^%(db_user)s$"')
-    #if result.failed:
-    #    abort('Database user "%(db_user)s" does not exist on host %(db_host)s' % env)
-    #else:
-    #    notice('Database user "%(db_user)s" exists on host %(db_host)s' % env)
+        notice('Connected to "%(mysql_name)s" as "%(mysql_user)s"' \
+            ' on host %(mysql_host)s' % env)
 
 
 @roles('app', 'work')
@@ -94,7 +92,18 @@ def seed(sample='n'):
     This needs to be run once per database, but has to be run from the
     app or work server, because we need to pipe data to mysql.
     """
-    warn('db.mysql.seed() not implemented')
+    d = path(env.data_path, 'db', 'mysql', 'seed')   
+    if exists(d):
+        files = ls(d)     
+        for f in files:
+            _psql_pipe_data(f)                    
+
+    d = path(env.data_path, 'db', 'mysql', 'sample')
+    if do(sample) and exists(d):
+        files = ls(d)        
+        for f in files:
+            notice('Seeding from %s' % f)
+            _mysql_pipe_data(f)
     
 
 @roles('app', 'work')
