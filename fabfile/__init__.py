@@ -45,7 +45,7 @@ from fabric.contrib.files import exists
 from fabric.tasks import execute
 from fabric.decorators import roles, runs_once, task
 from .utils import require_settings, run_in_ve
-from .utils import notice, warn, abort, path, do, confirm
+from .utils import notice, warn, abort, path, do, confirm, check_path
 import db
 
 # PROJECT-SPECIFIC SETTINGS
@@ -215,6 +215,8 @@ def _link_apache_conf(maint=False):
 
 def _setup_env(env_type):
     """Setup the working environment as appropriate for loc, stg, prd."""
+    check_path()
+
     env.settings = env_type
     
     if env.settings == 'loc':

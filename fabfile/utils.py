@@ -6,6 +6,7 @@ from fabric.colors import red, blue
 from fabric.context_managers import prefix
 from fabric.decorators import task
 import fabric.utils
+import sys
 import os
 from functools import update_wrapper
 
@@ -89,4 +90,12 @@ def do(yes_no):
 def confirm(msg):
     """Get confirmation from the user."""
     return do(raw_input(msg))
+    
+def check_path():
+    """Make sure the main project directory is in sys.path."""
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    notice('Checking sys.path for %s' % project_root)
+    if project_root not in sys.path:
+        notice('Appending %s to sys.path' % project_root)
+        sys.path.append(project_root)
     
